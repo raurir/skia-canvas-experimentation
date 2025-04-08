@@ -1,0 +1,17 @@
+{
+  "name": "skia",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Rauri Rochford <rauri.rochford@safetyculture.io>",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^22.13.11",
+    "skia-canvas": "^2.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "npx ts-node sc-lines.ts"
+  }
+}

@@ -1,0 +1,6 @@
+.DS*
+*.jpg
+*.js
+*.pdf
+*.png
+node_modules
