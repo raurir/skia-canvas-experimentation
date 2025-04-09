@@ -22,6 +22,35 @@ type Direction = "X_POS" | "X_NEG" | "Y_POS" | "Y_NEG";
 //   canvas: Canvas;
 // };
 
+type Intersection = {
+  x: number;
+  y: number;
+  path1: Path2D;
+  path2: Path2D;
+};
+
+const checkPathIntersection = (
+  path1: Path2D,
+  path2: Path2D,
+  ctx: any,
+  bounds = { minX: 0, maxX: width, minY: 0, maxY: height },
+  resolution = 1
+): Intersection | undefined => {
+  // Sample points in the canvas area
+  for (let x = bounds.minX; x <= bounds.maxX; x += resolution) {
+    for (let y = bounds.minY; y <= bounds.maxY; y += resolution) {
+      // If a point is on both paths, we've found an intersection
+      if (
+        ctx.isPointInStroke(path1, x, y) &&
+        ctx.isPointInStroke(path2, x, y)
+      ) {
+        return { x, y, path1, path2 };
+      }
+    }
+  }
+  return undefined;
+};
+
 const generateMiniCanvas = () => {
   const canvas = new Canvas(width, height),
     ctx = canvas.getContext("2d");
@@ -32,7 +61,12 @@ const generateMiniCanvas = () => {
   ctx.lineWidth = 4;
   ctx.beginPath();
 
-  const generateLine = (): Path2D => {
+  const lines: Path2D[] = [];
+
+  const generateLine = (): {
+    line: Path2D;
+    allIntersections: Intersection[];
+  } => {
     ctx.strokeStyle = [PurpleRain, BlueMoon, YellowSubmarine][rand(0, 3)];
 
     let x = rand(borderPadding, width - borderPadding * 2),
@@ -40,6 +74,7 @@ const generateMiniCanvas = () => {
 
     const spikes = new Path2D();
     spikes.moveTo(x, y);
+    const allIntersections: Intersection[] = [];
 
     let ok = true,
       i = 0,
@@ -79,18 +114,58 @@ const generateMiniCanvas = () => {
         ok = false;
       }
       spikes.lineTo(x, y);
+
+      const intersections = lines.reduce((acc: Intersection[], l: Path2D) => {
+        const intersection = checkPathIntersection(spikes, l, ctx);
+        if (intersection) {
+          const { x, y } = intersection;
+          return [...acc, intersection];
+        }
+        return acc;
+      }, [] as Intersection[]);
+
+      if (intersections.length) {
+        // continue;
+        console.log("killing line");
+        allIntersections.push(...intersections);
+        // ok = false;
+      } else {
+        console.log("appending line");
+      }
+
+      // lines[lines.length - 1] = spikes;
+
       i++;
       if (i > 10) {
         ok = false;
       }
     }
-    return spikes.round(10);
+
+    lines.push(spikes);
+
+    console.log("lines", lines.length);
+
+    return { line: spikes.round(10), allIntersections };
   };
-  const numberOfLines = rand(2, 10);
+
+  const numberOfLines = rand(2, 10) * 1;
+
   for (let i = 0; i < numberOfLines; i++) {
     const isDashed = rand(0, 3) === 1;
+
+    const { line, allIntersections } = generateLine();
+
+    allIntersections.forEach((intersection) => {
+      const { x, y } = intersection;
+      // const p = new Path2D();
+      // p.arc(x, y, 5, 0, Math.PI * 2, true);
+      ctx.fillStyle = "red";
+      // ctx.fill(p);
+      // ctx.fillStyle = "black";
+      ctx.fillRect(x - 5, y - 5, 10, 10);
+    });
+
     if (isDashed) ctx.setLineDash([5, 5]);
-    const line = generateLine();
     ctx.stroke(line);
     if (isDashed) ctx.setLineDash([]);
   }
@@ -119,7 +194,7 @@ const generateCanvas = () => {
 const { canvas } = generateCanvas();
 
 async function render() {
-  await canvas.saveAs("sc-lines.png", { density: 1 });
+  await canvas.saveAs("sc-lines.png", { density: 4 });
   // let pngData = await canvas.png;
 }
 render();
