@@ -1,29 +1,24 @@
 import { Canvas, Path2D } from "skia-canvas";
 
-// Create a canvas
-const canvases = 4;
+type Direction = "X_POS" | "X_NEG" | "Y_POS" | "Y_NEG" | "NONE";
+type Point = [number, number];
+type Path = Point[];
 
+const canvases = 4; // must be a square number
 const width = 400;
-const height = 400;
+const height = 300;
 const borderPadding = 20;
 const minDistance = 20;
 
 const PurpleRain = "#B2ACFF";
 const BlueMoon = "#80E8FF";
 const YellowSubmarine = "#FFEB80";
-// type Colors = typeof PurpleRain | typeof BlueMoon | typeof YellowSubmarine;
-
 const rand = (min: number, max: number): number =>
   min + Math.floor(Math.random() * (max - min));
 
-type Direction = "X_POS" | "X_NEG" | "Y_POS" | "Y_NEG" | "NONE";
-// type GenCanvas = {
-//   ctx: CanvasRenderingContext2D;
-//   canvas: Canvas;
-// };
-
-type Point = [number, number];
-type Path = Point[];
+const gap = 20;
+const randGapped = (min: number, max: number): number =>
+  Math.round(rand(min, max) / gap) * gap;
 
 function isVertical(p1: Point, p2: Point): boolean {
   return p1[0] === p2[0];
@@ -95,19 +90,19 @@ const generateMiniCanvas = () => {
 
   const generateLine = (): {
     line: Path2D;
-    allIntersections: Point[];
+    intersections: Point[];
   } => {
     ctx.strokeStyle = [PurpleRain, BlueMoon, YellowSubmarine][rand(0, 3)];
 
-    let x = rand(borderPadding, width - borderPadding * 2),
-      y = rand(borderPadding, height - borderPadding * 2);
+    let x = randGapped(borderPadding, width - borderPadding * 2),
+      y = randGapped(borderPadding, height - borderPadding * 2);
 
     const spikes = new Path2D();
     spikes.moveTo(x, y);
     const line: Path = [[x, y]];
 
     let ok = true,
-      i = 0,
+      count = 0,
       lastDir: Direction = "NONE";
     while (ok) {
       const dir: Direction = ["X_POS", "X_NEG", "Y_POS", "Y_NEG"].filter(
@@ -117,18 +112,20 @@ const generateMiniCanvas = () => {
 
       switch (dir) {
         case "X_POS":
-          x += rand(minDistance, width - x);
+          x += randGapped(minDistance, width - x);
           break;
         case "X_NEG":
-          x -= rand(minDistance, x);
+          x -= randGapped(minDistance, x);
           break;
         case "Y_POS":
-          y += rand(minDistance, height - y);
+          y += randGapped(minDistance, height - y);
           break;
         case "Y_NEG":
-          y -= rand(minDistance, y);
+          y -= randGapped(minDistance, y);
           break;
       }
+
+      let iteration = Math.random().toString(16);
 
       // prevent overlapping itself:
       for (let j = 1; j < line.length; j++) {
@@ -149,47 +146,21 @@ const generateMiniCanvas = () => {
 
           const intersection = findPathIntersections(segment1, segment2);
           if (intersection.length) {
-            console.log("overlapping", intersection);
+            console.log("overlapping", iteration, intersection);
 
             intersection.forEach(([x, y]) => {
               ctx.fillStyle = "#f0f";
               ctx.fillRect(x - 5, y - 5, 10, 10);
             });
+            ok = false;
           }
         }
       }
-
-      // const intersections = line.reduce(
-      //   (acc: Point[], p2: Point, i: number) => {
-      //     if (i === 0) return acc;
-      //     const p1 = line[i - 1];
-      //     const lineSegment: Path = [p1, p2];
-      //     const lineWithSegmentRmoved = line.filter(
-      //       (p) =>
-      //         !(p.join(",") == p1.join(",") || p.join(",") === p2.join(","))
-      //     );
-      //     const intersections = findPathIntersections(
-      //       lineSegment,
-      //       lineWithSegmentRmoved
-      //     );
-      //     if (intersections.length) {
-      //       return [...acc, ...intersections];
-      //     }
-      //     return acc;
-      //   },
-      //   [] as Point[]
-      // );
-      // if (intersections.length) {
-      //   console.log("killing line");
-
-      //   intersections.forEach(([x, y]) => {
-      //     ctx.fillStyle = "blue";
-      //     ctx.fillRect(x - 5, y - 5, 10, 10);
-      //   });
-
-      //   // ok = false;
-      //   // break;
-      // }
+      if (!ok) {
+        line.splice(line.length - 3, 2);
+        break;
+      }
+      // console.log("reached here...", iteration);
 
       // limit to bounds:
       if (x < borderPadding) {
@@ -208,15 +179,15 @@ const generateMiniCanvas = () => {
       spikes.lineTo(x, y);
       line.push([x, y]);
 
-      i++;
-      if (i > 10) {
+      count++;
+      if (count > 10) {
         ok = false;
       }
     }
 
     lines.push(line);
 
-    console.log("lines", lines.length);
+    // console.log("lines", lines.length);
 
     const intersections = lines.reduce(
       (acc: Point[], otherLine: Path) => {
@@ -239,21 +210,21 @@ const generateMiniCanvas = () => {
       [] // as Intersection[]
     );
 
-    return { line: spikes.round(10), allIntersections: intersections };
+    return { line: spikes.round(8), intersections };
   };
 
-  const numberOfLines = 3; //rand(2, 10) * 1;
+  const numberOfLines = rand(1, 10) * 2;
 
   for (let i = 0; i < numberOfLines; i++) {
     const isDashed = rand(0, 3) === 1;
 
-    const { line, allIntersections } = generateLine();
-    console.log("allIntersections", allIntersections);
+    const { line, intersections } = generateLine();
+    console.log("allIntersections", intersections);
 
-    allIntersections.forEach(([x, y]) => {
+    intersections.forEach(([x, y]) => {
       // const p = new Path2D();
       // p.arc(x, y, 5, 0, Math.PI * 2, true);
-      ctx.fillStyle = "red";
+      ctx.fillStyle = "black";
       // ctx.fill(p);
       // ctx.fillStyle = "black";
       ctx.fillRect(x - 5, y - 5, 10, 10);
@@ -267,19 +238,17 @@ const generateMiniCanvas = () => {
 };
 
 const generateCanvas = () => {
-  const largeWidth = (width * canvases) / 2;
-  const largeHeight = (height * canvases) / 2;
+  const sqrt = Math.sqrt(canvases);
+  const largeWidth = (width * canvases) / sqrt;
+  const largeHeight = (height * canvases) / sqrt;
   const canvas = new Canvas(largeWidth, largeHeight),
     ctx = canvas.getContext("2d");
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, largeWidth, largeHeight);
 
   for (let i = 0; i < canvases; i++) {
-    if (i > 0) {
-      break;
-    }
-    const x = (i % 2) * width;
-    const y = Math.floor(i / 2) * height;
+    const x = (i % sqrt) * width;
+    const y = Math.floor(i / sqrt) * height;
     // ctx.save();
     // ctx.translate(x, y);
     const { canvas } = generateMiniCanvas();
@@ -294,7 +263,7 @@ const generateCanvas = () => {
 const { canvas } = generateCanvas();
 
 async function render() {
-  await canvas.saveAs("sc-lines.png", { density: 4 });
+  await canvas.saveAs("sc-lines.png", { density: 2 });
   // let pngData = await canvas.png;
 }
 render();
